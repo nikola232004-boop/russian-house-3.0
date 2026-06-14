@@ -1,0 +1,9 @@
+cat > .env << 'EOF'
+# База данных SQLite
+DATABASE_URL="file:./prisma/dev.db"
+
+# API ключи
+OPENAI_API_KEY=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
+OPENAI_BASE_URL=https://openrouter.ai/api/v1
+OPENAI_MODEL=openai/gpt-3.5-turbo
+EOF
