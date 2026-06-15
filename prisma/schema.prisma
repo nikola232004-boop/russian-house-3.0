@@ -8,17 +8,18 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  password     String
-  name         String
-  phone        String?
-  role         String    @default("USER")
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  phone     String?
+  role      String   @default("USER")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   
   chats        Chat[]
   events       AnalyticsEvent[]
+  clientDocuments ClientDocument[]
 }
 
 model Chat {
@@ -41,10 +42,38 @@ model AnalyticsEvent {
   createdAt DateTime @default(now())
 }
 
+model ClientDocument {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  filename     String
+  originalName String
+  fileType     String
+  fileSize     Int
+  fileUrl      String
+  status       String   @default("pending")
+  comment      String?
+  uploadedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 model Document {
   id        String   @id @default(cuid())
   filename  String
   content   String
-  embedding String?
+  chunks    String   @default("[]")
   createdAt DateTime @default(now())
+  
+  documentChunks DocumentChunk[]
+}
+
+model DocumentChunk {
+  id          String   @id @default(cuid())
+  documentId  String
+  content     String
+  embedding   String   @default("[]")
+  chunkIndex  Int
+  createdAt   DateTime @default(now())
+  
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 }

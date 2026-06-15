@@ -37,7 +37,7 @@ export default function Hero() {
               <span>→</span>
             </Link>
             <Link
-              href="#services"
+              href="/about"
               className="inline-flex items-center justify-center gap-2 px-8 py-4 border-2 border-blue-600 text-blue-600 font-semibold rounded-full hover:bg-blue-600 hover:text-white transition-all"
             >
               Узнать о программе

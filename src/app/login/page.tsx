@@ -4,9 +4,11 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -27,7 +29,7 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (data.success) {
-        localStorage.setItem('currentUser', JSON.stringify(data.user));
+        login(data.user);
         router.push('/dashboard');
       } else {
         setError(data.error || 'Ошибка входа');
@@ -70,7 +72,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                placeholder="ivan@example.com"
+                placeholder="admin@example.com"
                 required
               />
             </div>

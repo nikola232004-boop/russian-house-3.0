@@ -1,61 +1,47 @@
-// Простая эмуляция эмбеддингов (для демонстрации)
-// В реальном проекте используйте OpenAI embeddings или transformers.js
+// Простая эмуляция эмбеддингов для RAG
+// В реальном проекте используйте OpenAI embeddings
 
-/**
- * Генерирует простой вектор эмбеддинга на основе символов текста
- * @param text - входной текст
- * @returns массив чисел (вектор) размером 128
- */
-export function generateSimpleEmbedding(text: string): number[] {
-  const embedding: number[] = new Array(128).fill(0);
+export function generateEmbedding(text: string, dimension: number = 128): number[] {
+  const embedding = new Array(dimension).fill(0);
   const lowerText = text.toLowerCase();
   
-  // Ключевые слова для улучшения поиска
-  const keywords = {
-    documents: ['документ', 'справка', 'бумага', 'пакет', 'собрать', 'нотариус', 'перевод'],
-    vnh: ['внж', 'вид на жительство', 'разрешение', 'проживание', 'внж'],
-    citizenship: ['гражданство', 'паспорт рф', 'российский паспорт', 'стать гражданином'],
-    timing: ['срок', 'сколько', 'времени', 'долго', 'ждать', 'период', 'месяц'],
-    cost: ['стоимость', 'цена', 'госпошлина', 'платить', 'оплата', 'руб'],
-    work: ['работа', 'трудоустройство', 'работать', 'устроиться', 'должность']
+  // Ключевые слова для разных тем
+  const topics = {
+    documents: ['документ', 'справка', 'паспорт', 'заявление', 'фото', 'медсправка', 'несудимость'],
+    vnh: ['внж', 'вид на жительство', 'разрешение', 'проживание'],
+    citizenship: ['гражданство', 'паспорт рф', 'российский паспорт'],
+    timing: ['срок', 'сколько', 'долго', 'период', 'месяц'],
+    cost: ['стоимость', 'цена', 'госпошлина', 'платить', 'руб'],
+    work: ['работа', 'трудоустройство', 'работать', 'устроиться']
   };
   
-  // Для каждого символа добавляем вклад в эмбеддинг
-  for (let i = 0; i < Math.min(lowerText.length, 1000); i++) {
+  // Заполняем эмбеддинг на основе символов
+  for (let i = 0; i < Math.min(lowerText.length, dimension / 2); i++) {
     const code = lowerText.charCodeAt(i);
-    embedding[i % 128] += code / 1000;
+    embedding[i] += (code % 256) / 256;
   }
   
   // Добавляем вес для ключевых слов
-  for (const [category, words] of Object.entries(keywords)) {
-    for (const word of words) {
-      if (lowerText.includes(word)) {
-        const categoryHash = category.charCodeAt(0) % 128;
-        embedding[categoryHash] += 0.5;
+  for (const [topic, keywords] of Object.entries(topics)) {
+    for (const keyword of keywords) {
+      if (lowerText.includes(keyword)) {
+        const hashIndex = topic.charCodeAt(0) % (dimension / 2) + dimension / 2;
+        embedding[hashIndex] += 0.5;
       }
     }
   }
   
-  // Нормализуем вектор
+  // Нормализация
   const norm = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
   if (norm > 0) {
-    return embedding.map(val => val / norm);
+    return embedding.map(v => v / norm);
   }
   
   return embedding;
 }
 
-/**
- * Вычисляет косинусное сходство между двумя векторами
- * @param a - первый вектор
- * @param b - второй вектор
- * @returns значение сходства от 0 до 1
- */
 export function cosineSimilarity(a: number[], b: number[]): number {
-  if (a.length !== b.length) {
-    console.warn('Vectors have different lengths');
-    return 0;
-  }
+  if (a.length !== b.length) return 0;
   
   let dot = 0;
   let normA = 0;
@@ -67,47 +53,25 @@ export function cosineSimilarity(a: number[], b: number[]): number {
     normB += b[i] * b[i];
   }
   
-  const similarity = dot / (Math.sqrt(normA) * Math.sqrt(normB) || 1);
-  return Math.max(0, Math.min(1, similarity));
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB) + 0.0001);
 }
 
-/**
- * Разбивает текст на чанки для лучшего поиска
- * @param text - входной текст
- * @param chunkSize - размер чанка в символах
- * @returns массив чанков
- */
-export function chunkText(text: string, chunkSize: number = 1000): string[] {
+export function chunkText(text: string, chunkSize: number = 1000, overlap: number = 200): string[] {
   const chunks: string[] = [];
   
-  for (let i = 0; i < text.length; i += chunkSize) {
-    chunks.push(text.substring(i, i + chunkSize));
+  for (let i = 0; i < text.length; i += chunkSize - overlap) {
+    let chunk = text.substring(i, i + chunkSize);
+    
+    // Разбиваем по предложениям
+    const lastPeriod = chunk.lastIndexOf('.');
+    if (lastPeriod > chunkSize / 2) {
+      chunk = chunk.substring(0, lastPeriod + 1);
+    }
+    
+    if (chunk.trim().length > 50) {
+      chunks.push(chunk.trim());
+    }
   }
   
   return chunks;
-}
-
-/**
- * Находит наиболее релевантные чанки для запроса
- * @param query - поисковый запрос
- * @param chunks - массив чанков
- * @param topK - количество результатов
- * @returns массив индексов и оценок
- */
-export function findRelevantChunks(
-  query: string, 
-  chunks: string[], 
-  topK: number = 3
-): Array<{ index: number; score: number; content: string }> {
-  const queryEmbedding = generateSimpleEmbedding(query);
-  
-  const results = chunks.map((chunk, index) => {
-    const chunkEmbedding = generateSimpleEmbedding(chunk);
-    const score = cosineSimilarity(queryEmbedding, chunkEmbedding);
-    return { index, score, content: chunk };
-  });
-  
-  results.sort((a, b) => b.score - a.score);
-  
-  return results.slice(0, topK);
 }

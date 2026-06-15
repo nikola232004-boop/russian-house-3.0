@@ -1,36 +1,24 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  createdAt: string;
-}
+import { useAuth } from '@/context/AuthContext';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, isLoading, logout } = useAuth();
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('currentUser');
-    if (!storedUser) {
+    if (!isLoading && !user) {
       router.push('/login');
-    } else {
-      setUser(JSON.parse(storedUser));
     }
-    setIsLoading(false);
-  }, [router]);
+  }, [user, isLoading, router]);
 
   const handleLogout = () => {
-    localStorage.removeItem('currentUser');
-    router.push('/login');
+    logout();
+    router.push('/');
   };
 
   if (isLoading) {
@@ -70,6 +58,9 @@ export default function DashboardPage() {
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">Добро пожаловать, {user.name}!</h1>
                   <p className="text-gray-500">Личный кабинет программы правовой поддержки ВШЭ</p>
+                  {user.role === 'ADMIN' && (
+                    <p className="text-xs text-purple-600 mt-1">⭐ У вас есть права администратора</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -82,11 +73,11 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
             <div className="text-2xl mb-2">📧</div>
             <p className="text-gray-500 text-sm">Email</p>
-            <p className="text-gray-900 font-medium">{user.email}</p>
+            <p className="text-gray-900 font-medium text-sm truncate">{user.email}</p>
           </div>
           <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
             <div className="text-2xl mb-2">📱</div>
@@ -100,7 +91,45 @@ export default function DashboardPage() {
               {new Date(user.createdAt).toLocaleDateString('ru-RU')}
             </p>
           </div>
+          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:border-blue-300 transition">
+            <Link href="/dashboard/documents">
+              <div className="text-2xl mb-2">📄</div>
+              <p className="text-gray-500 text-sm">Мои документы</p>
+              <p className="text-blue-600 font-medium">Перейти →</p>
+            </Link>
+          </div>
         </div>
+
+        {user.role === 'ADMIN' && (
+          <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-6 shadow-lg border border-purple-100 mb-8">
+            <h2 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+              <span>🔧</span> Панель администратора
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Link href="/admin/dashboard" className="flex items-center gap-3 p-3 bg-white rounded-xl hover:shadow-md transition">
+                <span className="text-2xl">📊</span>
+                <div>
+                  <p className="font-semibold text-gray-800">Статистика</p>
+                  <p className="text-xs text-gray-500">Аналитика и метрики</p>
+                </div>
+              </Link>
+              <Link href="/admin/documents" className="flex items-center gap-3 p-3 bg-white rounded-xl hover:shadow-md transition">
+                <span className="text-2xl">📋</span>
+                <div>
+                  <p className="font-semibold text-gray-800">Документы</p>
+                  <p className="text-xs text-gray-500">Все документы клиентов</p>
+                </div>
+              </Link>
+              <Link href="/admin/rag" className="flex items-center gap-3 p-3 bg-white rounded-xl hover:shadow-md transition">
+                <span className="text-2xl">🧠</span>
+                <div>
+                  <p className="font-semibold text-gray-800">RAG база</p>
+                  <p className="text-xs text-gray-500">Загрузка документов</p>
+                </div>
+              </Link>
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Мои заявки</h2>
@@ -111,7 +140,6 @@ export default function DashboardPage() {
                   <th className="text-left py-3 text-gray-500 font-medium">Тип</th>
                   <th className="text-left py-3 text-gray-500 font-medium">Статус</th>
                   <th className="text-left py-3 text-gray-500 font-medium">Дата</th>
-                  <th className="text-left py-3 text-gray-500 font-medium"></th>
                 </tr>
               </thead>
               <tbody>
@@ -119,20 +147,11 @@ export default function DashboardPage() {
                   <tr key={app.id} className="border-b border-gray-100">
                     <td className="py-3 text-gray-900">{app.type}</td>
                     <td className="py-3">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        app.status === 'На рассмотрении' 
-                          ? 'bg-yellow-100 text-yellow-700' 
-                          : 'bg-green-100 text-green-700'
-                      }`}>
+                      <span className={`px-2 py-1 text-xs rounded-full ${app.status === 'На рассмотрении' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
                         {app.status}
                       </span>
                     </td>
                     <td className="py-3 text-gray-500">{app.date}</td>
-                    <td className="py-3">
-                      <Link href="#" className="text-blue-600 text-sm hover:underline">
-                        Подробнее
-                      </Link>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -141,10 +160,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="text-center mt-8">
-          <Link
-            href="/assistant"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:shadow-lg transition-all"
-          >
+          <Link href="/assistant" className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:shadow-lg transition-all">
             Получить консультацию
             <span>→</span>
           </Link>
